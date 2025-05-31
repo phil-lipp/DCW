@@ -89,12 +89,42 @@ app.post('/api/check-updates', async (req, res) => {
     // Check for updates
     await containerService.checkAllContainers();
     
+    // Get current container stats
+    const { rows: containers } = await pool.query('SELECT * FROM containers');
+    const stats = {
+      total_containers: containers.length,
+      up_to_date: containers.filter(c => c.latest).length,
+      updates_available: containers.filter(c => c.new).length,
+      errors: containers.filter(c => c.error).length
+    };
+
+    // Record update check history
+    await pool.query(
+      `INSERT INTO update_check_history 
+       (total_containers, up_to_date, updates_available, errors)
+       VALUES ($1, $2, $3, $4)`,
+      [stats.total_containers, stats.up_to_date, stats.updates_available, stats.errors]
+    );
+    
     // Broadcast update check completed
     broadcastUpdate('update-check-completed');
     
     res.json({ message: 'Update check completed' });
   } catch (err) {
     logger.error('Error checking updates:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get update check history
+app.get('/api/update-history', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM update_check_history ORDER BY timestamp DESC LIMIT 10'
+    );
+    res.json(rows);
+  } catch (err) {
+    logger.error('Error fetching update history:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

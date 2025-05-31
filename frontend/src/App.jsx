@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import { FaSync, FaMoon, FaSun, FaExclamationTriangle, FaTimes, FaDocker, FaHistory } from 'react-icons/fa';
 
 const API_URL = 'http://localhost:3001';
@@ -16,7 +16,7 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [ws, setWs] = useState(null);
   const [globalError, setGlobalError] = useState(null);
-  const [updateHistory, setUpdateHistory] = useState([]);
+  const queryClient = useQueryClient();
 
   // Toggle dark mode
   useEffect(() => {
@@ -65,6 +65,20 @@ function App() {
 
   const latestContainers = getLatestContainerStates(containers);
 
+  // Fetch update history
+  const { data: updateHistory = [] } = useQuery('updateHistory', async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/update-history`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch update history');
+      }
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching update history:', error);
+      return [];
+    }
+  });
+
   // Handle update check
   const handleCheckUpdates = async () => {
     try {
@@ -74,17 +88,11 @@ function App() {
         throw new Error(errorData.error || 'Failed to check for updates');
       }
       
-      // Add new entry to update history
-      const now = new Date();
-      const stats = {
-        timestamp: now,
-        totalContainers: latestContainers.length,
-        upToDate: latestContainers.filter(c => isTruthy(c.latest)).length,
-        updatesAvailable: latestContainers.filter(c => isTruthy(c.new)).length,
-        errors: latestContainers.filter(c => isTruthy(c.error)).length
-      };
-      
-      setUpdateHistory(prev => [stats, ...prev].slice(0, 10)); // Keep last 10 entries
+      // Invalidate and refetch both containers and update history
+      await Promise.all([
+        queryClient.invalidateQueries('containers'),
+        queryClient.invalidateQueries('updateHistory')
+      ]);
     } catch (error) {
       console.error('Error checking updates:', error);
       setGlobalError(error.message);
@@ -276,19 +284,19 @@ function App() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {updateHistory.map((entry, index) => (
-                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                {updateHistory.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {entry.timestamp.toLocaleString()}
+                      {new Date(entry.timestamp).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {entry.totalContainers}
+                      {entry.total_containers}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">
-                      {entry.upToDate}
+                      {entry.up_to_date}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400">
-                      {entry.updatesAvailable}
+                      {entry.updates_available}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">
                       {entry.errors}

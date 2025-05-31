@@ -15,10 +15,21 @@ CREATE TABLE IF NOT EXISTS containers (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create update_check_history table
+CREATE TABLE IF NOT EXISTS update_check_history (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    total_containers INTEGER NOT NULL,
+    up_to_date INTEGER NOT NULL,
+    updates_available INTEGER NOT NULL,
+    errors INTEGER NOT NULL
+);
+
 -- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_containers_host ON containers(host);
 CREATE INDEX IF NOT EXISTS idx_containers_name ON containers(name);
 CREATE INDEX IF NOT EXISTS idx_containers_status ON containers(latest, new, error);
+CREATE INDEX IF NOT EXISTS idx_update_check_history_timestamp ON update_check_history(timestamp);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
