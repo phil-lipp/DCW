@@ -1,3 +1,125 @@
+# DCW (Docker Container Watcher)
+
+A modern web application for monitoring and managing Docker containers, built with a React frontend and Node.js backend.
+
+## Features
+
+- Real-time container status monitoring
+- Container update notifications
+- Modern, responsive UI
+- RESTful API for container management
+- Docker integration for easy deployment
+
+## Project Structure
+
+```
+.
+├── frontend/           # React frontend application
+│   ├── src/           # Source code
+│   ├── public/        # Static assets
+│   └── package.json   # Frontend dependencies
+├── backend/           # Node.js backend application
+│   ├── src/          # Source code
+│   ├── logs/         # Application logs
+│   └── package.json  # Backend dependencies
+└── docker-compose.yml # Docker orchestration
+```
+
+## Prerequisites
+
+- Docker and Docker Compose
+- Node.js 18+ (for local development)
+- npm or yarn (for local development)
+
+## Quick Start
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/dcw.git
+   cd dcw
+   ```
+
+2. Start the application using Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Access the application:
+   - Frontend: http://localhost:80
+   - Backend API: http://localhost:3000
+
+## Development Setup
+
+### Frontend
+
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+### Backend
+
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Docker Build
+
+The project includes Docker configurations for both frontend and backend:
+
+- `frontend/Dockerfile`: Multi-stage build for the React application
+- `backend/Dockerfile`: Node.js application server
+- `docker-compose.yml`: Orchestrates both services
+
+To build the Docker images locally:
+
+```bash
+docker-compose build
+```
+
+## Environment Variables
+
+### Frontend
+- `VITE_API_URL`: Backend API URL (default: http://localhost:3000)
+
+### Backend
+- `PORT`: Server port (default: 3000)
+- `NODE_ENV`: Environment (development/production)
+- `DOCKER_HOST`: Docker daemon socket path
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 # DCW (dockcheck-web) with exporters
 A webpage showing available image updates for your running containers.
 
