@@ -19,6 +19,26 @@ function App() {
   const [checkInterval, setCheckInterval] = useState(0);
   const queryClient = useQueryClient();
 
+  // Update checkInterval when intervalSettings changes
+  const { data: intervalSettings } = useQuery('checkInterval', async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/settings/check-interval`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch check interval settings');
+      }
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching check interval settings:', error);
+      return { intervalMinutes: 0 };
+    }
+  });
+
+  useEffect(() => {
+    if (intervalSettings?.intervalMinutes !== undefined) {
+      setCheckInterval(intervalSettings.intervalMinutes);
+    }
+  }, [intervalSettings]);
+
   // Toggle dark mode
   useEffect(() => {
     if (darkMode) {
@@ -77,20 +97,6 @@ function App() {
     } catch (error) {
       console.error('Error fetching update history:', error);
       return [];
-    }
-  });
-
-  // Fetch check interval settings
-  const { data: intervalSettings } = useQuery('checkInterval', async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/settings/check-interval`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch check interval settings');
-      }
-      return response.json();
-    } catch (error) {
-      console.error('Error fetching check interval settings:', error);
-      return { intervalMinutes: 0 };
     }
   });
 
