@@ -129,34 +129,79 @@ app.get('/api/update-history', async (req, res) => {
   }
 });
 
-// Schedule daily update check
-const scheduleUpdateCheck = () => {
-  const now = new Date();
-  const scheduledTime = new Date();
-  scheduledTime.setHours(parseInt(process.env.CRON_HOUR || '0'), parseInt(process.env.CRON_MINUTE || '0'), 0);
-  
-  if (scheduledTime < now) {
-    scheduledTime.setDate(scheduledTime.getDate() + 1);
+// Get check interval settings
+app.get('/api/settings/check-interval', (req, res) => {
+  const intervalMinutes = parseInt(process.env.CHECK_INTERVAL_MINUTES || '0');
+  res.json({ intervalMinutes });
+});
+
+// Update check interval settings
+app.post('/api/settings/check-interval', (req, res) => {
+  const { intervalMinutes } = req.body;
+  if (typeof intervalMinutes !== 'number' || intervalMinutes < 0) {
+    return res.status(400).json({ error: 'Invalid interval value' });
   }
   
-  const timeUntilCheck = scheduledTime - now;
+  // Update environment variable
+  process.env.CHECK_INTERVAL_MINUTES = intervalMinutes.toString();
   
-  setTimeout(async () => {
-    try {
-      logger.info('Running scheduled update check');
-      await containerService.checkAllContainers();
-      broadcastUpdate('update-check-completed');
-    } catch (error) {
-      logger.error('Error in scheduled update check:', error);
+  // Restart the interval check
+  scheduleChecks();
+  
+  res.json({ message: 'Check interval updated successfully' });
+});
+
+// Schedule container checks
+const scheduleChecks = () => {
+  // Schedule daily check
+  const scheduleDailyCheck = () => {
+    const now = new Date();
+    const scheduledTime = new Date();
+    scheduledTime.setHours(parseInt(process.env.CRON_HOUR || '0'), parseInt(process.env.CRON_MINUTE || '0'), 0);
+    
+    if (scheduledTime < now) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
     }
     
-    // Schedule next check
-    scheduleUpdateCheck();
-  }, timeUntilCheck);
+    const timeUntilCheck = scheduledTime - now;
+    
+    setTimeout(async () => {
+      try {
+        logger.info('Running scheduled daily update check');
+        await containerService.checkAllContainers();
+        broadcastUpdate('update-check-completed');
+      } catch (error) {
+        logger.error('Error in scheduled daily update check:', error);
+      }
+      
+      // Schedule next daily check
+      scheduleDailyCheck();
+    }, timeUntilCheck);
+  };
+
+  // Schedule interval check
+  const scheduleIntervalCheck = () => {
+    const intervalMinutes = parseInt(process.env.CHECK_INTERVAL_MINUTES || '0');
+    if (intervalMinutes > 0) {
+      setInterval(async () => {
+        try {
+          logger.info('Running scheduled interval update check');
+          await containerService.checkAllContainers();
+          broadcastUpdate('update-check-completed');
+        } catch (error) {
+          logger.error('Error in scheduled interval update check:', error);
+        }
+      }, intervalMinutes * 60 * 1000);
+    }
+  };
+
+  // Start both schedulers
+  scheduleDailyCheck();
+  scheduleIntervalCheck();
 };
 
-// Start scheduled checks
-scheduleUpdateCheck();
+// Start scheduling
+scheduleChecks();
 
 // Initial container check on startup
 containerService.checkAllContainers()

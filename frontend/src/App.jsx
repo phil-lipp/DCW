@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
-import { FaSync, FaMoon, FaSun, FaExclamationTriangle, FaTimes, FaDocker, FaHistory } from 'react-icons/fa';
+import { FaSync, FaMoon, FaSun, FaExclamationTriangle, FaTimes, FaDocker, FaHistory, FaClock } from 'react-icons/fa';
 
 const API_URL = 'http://localhost:3001';
 
@@ -16,6 +16,7 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [ws, setWs] = useState(null);
   const [globalError, setGlobalError] = useState(null);
+  const [checkInterval, setCheckInterval] = useState(0);
   const queryClient = useQueryClient();
 
   // Toggle dark mode
@@ -79,6 +80,20 @@ function App() {
     }
   });
 
+  // Fetch check interval settings
+  const { data: intervalSettings } = useQuery('checkInterval', async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/settings/check-interval`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch check interval settings');
+      }
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching check interval settings:', error);
+      return { intervalMinutes: 0 };
+    }
+  });
+
   // Handle update check
   const handleCheckUpdates = async () => {
     try {
@@ -95,6 +110,29 @@ function App() {
       ]);
     } catch (error) {
       console.error('Error checking updates:', error);
+      setGlobalError(error.message);
+    }
+  };
+
+  // Update check interval
+  const handleIntervalChange = async (minutes) => {
+    try {
+      const response = await fetch(`${API_URL}/api/settings/check-interval`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ intervalMinutes: minutes }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update check interval');
+      }
+      
+      setCheckInterval(minutes);
+      queryClient.invalidateQueries('checkInterval');
+    } catch (error) {
+      console.error('Error updating check interval:', error);
       setGlobalError(error.message);
     }
   };
@@ -148,6 +186,25 @@ function App() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Docker Container Watch</h1>
           </div>
           <div className="flex items-center space-x-4">
+            {/* Check Interval Control */}
+            <div className="flex items-center space-x-2">
+              <FaClock className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              <select
+                value={checkInterval}
+                onChange={(e) => handleIntervalChange(parseInt(e.target.value))}
+                className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="0">Manual Check Only</option>
+                <option value="15">Every 15 minutes</option>
+                <option value="30">Every 30 minutes</option>
+                <option value="60">Every hour</option>
+                <option value="120">Every 2 hours</option>
+                <option value="360">Every 6 hours</option>
+                <option value="720">Every 12 hours</option>
+                <option value="1440">Every 24 hours</option>
+              </select>
+            </div>
+            
             <button
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
