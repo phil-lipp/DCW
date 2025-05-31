@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
-import { FaSync, FaMoon, FaSun, FaExclamationTriangle, FaTimes } from 'react-icons/fa';
+import { FaSync, FaMoon, FaSun, FaExclamationTriangle, FaTimes, FaDocker, FaHistory } from 'react-icons/fa';
 
 const API_URL = 'http://localhost:3001';
 
@@ -16,6 +16,7 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [ws, setWs] = useState(null);
   const [globalError, setGlobalError] = useState(null);
+  const [updateHistory, setUpdateHistory] = useState([]);
 
   // Toggle dark mode
   useEffect(() => {
@@ -72,6 +73,18 @@ function App() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to check for updates');
       }
+      
+      // Add new entry to update history
+      const now = new Date();
+      const stats = {
+        timestamp: now,
+        totalContainers: latestContainers.length,
+        upToDate: latestContainers.filter(c => isTruthy(c.latest)).length,
+        updatesAvailable: latestContainers.filter(c => isTruthy(c.new)).length,
+        errors: latestContainers.filter(c => isTruthy(c.error)).length
+      };
+      
+      setUpdateHistory(prev => [stats, ...prev].slice(0, 10)); // Keep last 10 entries
     } catch (error) {
       console.error('Error checking updates:', error);
       setGlobalError(error.message);
@@ -122,7 +135,10 @@ function App() {
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Docker Container Watch</h1>
+          <div className="flex items-center space-x-3">
+            <FaDocker className="w-8 h-8 text-primary-500" />
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Docker Container Watch</h1>
+          </div>
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setDarkMode(!darkMode)}
@@ -238,6 +254,59 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* Update History Log */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center">
+              <FaHistory className="w-5 h-5 text-primary-500 mr-2" />
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Update Check History</h2>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Timestamp</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Containers</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Up to Date</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updates Available</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Errors</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {updateHistory.map((entry, index) => (
+                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {entry.timestamp.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {entry.totalContainers}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">
+                      {entry.upToDate}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400">
+                      {entry.updatesAvailable}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">
+                      {entry.errors}
+                    </td>
+                  </tr>
+                ))}
+                {updateHistory.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                      No update checks performed yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
