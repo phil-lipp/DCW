@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
-import { FaSync, FaMoon, FaSun, FaExclamationTriangle, FaTimes, FaDocker, FaHistory, FaClock } from 'react-icons/fa';
+import { FaSync, FaMoon, FaSun, FaExclamationTriangle, FaTimes, FaDocker, FaHistory, FaClock, FaInfoCircle } from 'react-icons/fa';
 
 const API_URL = 'http://localhost:3001';
 
@@ -17,6 +17,7 @@ function App() {
   const [ws, setWs] = useState(null);
   const [globalError, setGlobalError] = useState(null);
   const [checkInterval, setCheckInterval] = useState(0);
+  const [selectedContainer, setSelectedContainer] = useState(null);
   const queryClient = useQueryClient();
 
   // Update checkInterval when intervalSettings changes
@@ -35,7 +36,7 @@ function App() {
 
   useEffect(() => {
     if (intervalSettings?.intervalMinutes !== undefined) {
-      setCheckInterval(intervalSettings.intervalMinutes);
+      setCheckInterval(Number(intervalSettings.intervalMinutes));
     }
   }, [intervalSettings]);
 
@@ -143,6 +144,18 @@ function App() {
     }
   };
 
+  // Format timestamp
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    return new Date(timestamp).toLocaleString();
+  };
+
+  // Format image hash
+  const formatImageHash = (hash) => {
+    if (!hash) return 'N/A';
+    return hash.substring(0, 12);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -228,6 +241,69 @@ function App() {
         </div>
       </header>
 
+      {/* Container Details Modal */}
+      {selectedContainer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Container Details
+                </h3>
+                <button
+                  onClick={() => setSelectedContainer(null)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <FaTimes className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</h4>
+                  <p className="mt-1 text-gray-900 dark:text-white">{selectedContainer.name}</p>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Host</h4>
+                  <p className="mt-1 text-gray-900 dark:text-white">{selectedContainer.host}</p>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Image</h4>
+                  <p className="mt-1 text-gray-900 dark:text-white">{selectedContainer.image}</p>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Version</h4>
+                  <p className="mt-1 text-gray-900 dark:text-white">{formatImageHash(selectedContainer.current_version)}</p>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Latest Version</h4>
+                  <p className="mt-1 text-gray-900 dark:text-white">{formatImageHash(selectedContainer.latest_version)}</p>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Container Created</h4>
+                  <p className="mt-1 text-gray-900 dark:text-white">{formatTimestamp(selectedContainer.created_at)}</p>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Image Created</h4>
+                  <p className="mt-1 text-gray-900 dark:text-white">{formatTimestamp(selectedContainer.image_created)}</p>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Last Checked</h4>
+                  <p className="mt-1 text-gray-900 dark:text-white">{formatTimestamp(selectedContainer.last_checked)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -236,11 +312,12 @@ function App() {
             <h2 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-4">
               Containers on Latest Version
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto">
               {latestContainers.filter(c => isTruthy(c.latest)).map((container) => (
                 <div
                   key={`${container.name}-${container.host}`}
-                  className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-100 dark:border-green-800"
+                  className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-100 dark:border-green-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => setSelectedContainer(container)}
                 >
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">{container.name}</h3>
@@ -249,9 +326,12 @@ function App() {
                       Last checked: {new Date(container.last_checked).toLocaleString()}
                     </p>
                   </div>
-                  <span className="px-2 py-1 text-xs font-semibold text-green-600 bg-green-100 dark:bg-green-800 dark:text-green-200 rounded-full">
-                    Latest
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <FaInfoCircle className="w-4 h-4 text-gray-400" />
+                    <span className="px-2 py-1 text-xs font-semibold text-green-600 bg-green-100 dark:bg-green-800 dark:text-green-200 rounded-full">
+                      Latest
+                    </span>
+                  </div>
                 </div>
               ))}
               {(!latestContainers || latestContainers.filter(c => isTruthy(c.latest)).length === 0) && (
@@ -267,11 +347,12 @@ function App() {
             <h2 className="text-xl font-semibold text-blue-800 dark:text-blue-200 mb-4">
               Containers with Updates
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto">
               {latestContainers.filter(c => isTruthy(c.new)).map((container) => (
                 <div
                   key={`${container.name}-${container.host}`}
-                  className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-800"
+                  className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => setSelectedContainer(container)}
                 >
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">{container.name}</h3>
@@ -280,9 +361,12 @@ function App() {
                       Last checked: {new Date(container.last_checked).toLocaleString()}
                     </p>
                   </div>
-                  <span className="px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-100 dark:bg-blue-800 dark:text-blue-200 rounded-full">
-                    Update Available
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <FaInfoCircle className="w-4 h-4 text-gray-400" />
+                    <span className="px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-100 dark:bg-blue-800 dark:text-blue-200 rounded-full">
+                      Update Available
+                    </span>
+                  </div>
                 </div>
               ))}
               {(!latestContainers || latestContainers.filter(c => isTruthy(c.new)).length === 0) && (
@@ -298,11 +382,12 @@ function App() {
             <h2 className="text-xl font-semibold text-red-800 dark:text-red-200 mb-4">
               Containers with Errors
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto">
               {latestContainers.filter(c => isTruthy(c.error)).map((container) => (
                 <div
                   key={`${container.name}-${container.host}`}
-                  className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-100 dark:border-red-800"
+                  className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-100 dark:border-red-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => setSelectedContainer(container)}
                 >
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">{container.name}</h3>
@@ -311,9 +396,12 @@ function App() {
                       Last checked: {new Date(container.last_checked).toLocaleString()}
                     </p>
                   </div>
-                  <span className="px-2 py-1 text-xs font-semibold text-red-600 bg-red-100 dark:bg-red-800 dark:text-red-200 rounded-full">
-                    Error
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <FaInfoCircle className="w-4 h-4 text-gray-400" />
+                    <span className="px-2 py-1 text-xs font-semibold text-red-600 bg-red-100 dark:bg-red-800 dark:text-red-200 rounded-full">
+                      Error
+                    </span>
+                  </div>
                 </div>
               ))}
               {(!latestContainers || latestContainers.filter(c => isTruthy(c.error)).length === 0) && (
@@ -340,10 +428,12 @@ function App() {
               <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Timestamp</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Host</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Containers</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Up to Date</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updates Available</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Errors</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -351,6 +441,9 @@ function App() {
                   <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {new Date(entry.timestamp).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {entry.hostname}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {entry.total_containers}
@@ -364,11 +457,22 @@ function App() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">
                       {entry.errors}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        entry.status === 'success' 
+                          ? 'text-green-600 bg-green-100 dark:bg-green-800 dark:text-green-200'
+                          : entry.status === 'error'
+                          ? 'text-red-600 bg-red-100 dark:bg-red-800 dark:text-red-200'
+                          : 'text-yellow-600 bg-yellow-100 dark:bg-yellow-800 dark:text-yellow-200'
+                      }`}>
+                        {entry.status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
                 {updateHistory.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                       No update checks performed yet
                     </td>
                   </tr>

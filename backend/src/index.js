@@ -5,6 +5,9 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const winston = require('winston');
 const ContainerService = require('./services/containerService');
+const HostService = require('./services/hostService');
+const InitService = require('./services/initService');
+const runMigrations = require('./db/migrate');
 require('dotenv').config();
 
 // Initialize logger
@@ -37,14 +40,11 @@ const docker = new Docker();
 // Initialize PostgreSQL connection
 const pool = new Pool({
   user: process.env.POSTGRES_USER || 'postgres',
-  host: process.env.POSTGRES_HOST || 'localhost',
+  host: process.env.POSTGRES_HOST || 'postgres',
   database: process.env.POSTGRES_DB || 'postgres',
   password: process.env.POSTGRES_PASSWORD || 'postgres',
   port: process.env.POSTGRES_PORT || 5432,
 });
-
-// Initialize container service
-const containerService = new ContainerService(pool);
 
 // WebSocket server
 const wss = new WebSocketServer({ port: 8080 });
@@ -87,29 +87,29 @@ app.post('/api/check-updates', async (req, res) => {
     broadcastUpdate('update-check-started');
     
     // Check for updates
-    await containerService.checkAllContainers();
+    const results = await req.app.locals.containerService.checkAllContainers();
     
-    // Get current container stats
-    const { rows: containers } = await pool.query('SELECT * FROM containers');
-    const stats = {
-      total_containers: containers.length,
-      up_to_date: containers.filter(c => c.latest).length,
-      updates_available: containers.filter(c => c.new).length,
-      errors: containers.filter(c => c.error).length
-    };
-
-    // Record update check history
-    await pool.query(
-      `INSERT INTO update_check_history 
-       (total_containers, up_to_date, updates_available, errors)
-       VALUES ($1, $2, $3, $4)`,
-      [stats.total_containers, stats.up_to_date, stats.updates_available, stats.errors]
-    );
+    // Calculate overall stats
+    const stats = results.reduce((acc, result) => ({
+      total_containers: acc.total_containers + result.total_containers,
+      up_to_date: acc.up_to_date + result.up_to_date,
+      updates_available: acc.updates_available + result.updates_available,
+      errors: acc.errors + result.errors
+    }), {
+      total_containers: 0,
+      up_to_date: 0,
+      updates_available: 0,
+      errors: 0
+    });
     
     // Broadcast update check completed
     broadcastUpdate('update-check-completed');
     
-    res.json({ message: 'Update check completed' });
+    res.json({ 
+      message: 'Update check completed',
+      results,
+      stats
+    });
   } catch (err) {
     logger.error('Error checking updates:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -168,7 +168,7 @@ const scheduleChecks = () => {
     setTimeout(async () => {
       try {
         logger.info('Running scheduled daily update check');
-        await containerService.checkAllContainers();
+        await req.app.locals.containerService.checkAllContainers();
         broadcastUpdate('update-check-completed');
       } catch (error) {
         logger.error('Error in scheduled daily update check:', error);
@@ -186,7 +186,7 @@ const scheduleChecks = () => {
       setInterval(async () => {
         try {
           logger.info('Running scheduled interval update check');
-          await containerService.checkAllContainers();
+          await req.app.locals.containerService.checkAllContainers();
           broadcastUpdate('update-check-completed');
         } catch (error) {
           logger.error('Error in scheduled interval update check:', error);
@@ -203,16 +203,42 @@ const scheduleChecks = () => {
 // Start scheduling
 scheduleChecks();
 
-// Initial container check on startup
-containerService.checkAllContainers()
-  .then(() => {
-    logger.info('Initial container check completed');
-  })
-  .catch((error) => {
-    logger.error('Error in initial container check:', error);
-  });
+// Run migrations and start the server
+async function startServer() {
+  try {
+    // Run database migrations first
+    await runMigrations();
+    logger.info('Database migrations completed');
 
-// Start server
-app.listen(port, () => {
-  logger.info(`Server running on port ${port}`);
-}); 
+    // Initialize services after migrations
+    const hostService = new HostService(pool);
+    const containerService = new ContainerService(pool, hostService);
+    const initService = new InitService(pool);
+
+    // Initialize remote hosts
+    await initService.initializeHosts();
+    logger.info('Remote hosts initialization completed');
+
+    // Start the server
+    app.listen(port, () => {
+      logger.info(`Server running on port ${port}`);
+    });
+
+    // Initial container check after everything is set up
+    try {
+      await containerService.checkAllContainers();
+      logger.info('Initial container check completed');
+    } catch (error) {
+      logger.error('Error in initial container check:', error);
+    }
+
+    // Make containerService available to route handlers
+    app.locals.containerService = containerService;
+  } catch (error) {
+    logger.error('Error starting server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer(); 
