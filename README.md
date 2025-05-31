@@ -7,10 +7,7 @@ A modern web application for monitoring and managing Docker containers across mu
 - 🐳 Real-time container monitoring
 - 🔄 Automatic update checking
 - 📊 Beautiful modern UI built with Tailwind CSS
-- 🔔 Notification system for container updates
-- 🌐 Multi-host support
 - 🔒 Secure Docker socket access
-- 📈 Container statistics and health monitoring
 
 ## Architecture
 
@@ -23,8 +20,6 @@ The application consists of three main components:
 ## Prerequisites
 
 - Docker and Docker Compose
-- Node.js (for local development)
-- PostgreSQL (handled by Docker Compose)
 
 ## Quick Start
 
@@ -63,8 +58,8 @@ The application consists of three main components:
 
 ## Roadmap
 
-1. ✅ Container update via GUI
-2. ✅ Multiple hosts one GUI
+1. 🔄 Container update via GUI
+2. 🔄 Multiple hosts one GUI
 3. 🔄 Test notifications
 4. 🔄 Improve web UI settings
 5. 🔄 Add authentication
