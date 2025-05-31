@@ -38,6 +38,7 @@ yarn-error.log*
 # Database
 *.sqlite
 *.db
+postgres_data/
 
 # Temporary files
 *.tmp

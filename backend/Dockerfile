@@ -2,6 +2,9 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Install PostgreSQL client and Docker CLI
+RUN apk add --no-cache postgresql-client docker-cli
+
 # Copy package files
 COPY package*.json ./
 
