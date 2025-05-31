@@ -15,39 +15,79 @@ class ContainerService {
       const containerInfo = await this.docker.getContainer(container.Id).inspect();
       const imageName = containerInfo.Config.Image;
       
-      // Get current image digest
+      // Get current image info
       const currentImage = await this.docker.getImage(imageName).inspect();
-      const currentDigest = currentImage.RepoDigests?.[0]?.split('@')[1];
-
-      // Check for new image
-      const { stdout: newDigest } = await execAsync(`docker pull ${imageName} --quiet`);
       
-      if (newDigest.trim() !== currentDigest) {
-        // Update available
-        await this.pool.query(
-          `UPDATE containers 
-           SET latest = false, 
-               new = true, 
-               current_version = $1, 
-               latest_version = $2,
-               last_checked = CURRENT_TIMESTAMP
-           WHERE name = $3 AND host = $4`,
-          [currentDigest, newDigest.trim(), container.Names[0].slice(1), process.env.HOSTNAME]
-        );
+      // For :latest tags, compare image IDs instead of digests
+      if (imageName.endsWith(':latest')) {
+        const currentImageId = currentImage.Id;
+        
+        // Pull the latest image without applying it
+        await execAsync(`docker pull ${imageName} --quiet`);
+        
+        // Get the new image info
+        const newImage = await this.docker.getImage(imageName).inspect();
+        const newImageId = newImage.Id;
+        
+        if (newImageId !== currentImageId) {
+          // Update available
+          await this.pool.query(
+            `UPDATE containers 
+             SET latest = false, 
+                 new = true, 
+                 current_version = $1, 
+                 latest_version = $2,
+                 last_checked = CURRENT_TIMESTAMP
+             WHERE name = $3 AND host = $4`,
+            [currentImageId, newImageId, container.Names[0].slice(1), process.env.HOSTNAME]
+          );
+        } else {
+          // Already on latest version
+          await this.pool.query(
+            `UPDATE containers 
+             SET latest = true, 
+                 new = false, 
+                 error = false,
+                 error_message = NULL,
+                 current_version = $1,
+                 latest_version = $1,
+                 last_checked = CURRENT_TIMESTAMP
+             WHERE name = $2 AND host = $3`,
+            [currentImageId, container.Names[0].slice(1), process.env.HOSTNAME]
+          );
+        }
       } else {
-        // Already on latest version
-        await this.pool.query(
-          `UPDATE containers 
-           SET latest = true, 
-               new = false, 
-               error = false,
-               error_message = NULL,
-               current_version = $1,
-               latest_version = $1,
-               last_checked = CURRENT_TIMESTAMP
-           WHERE name = $2 AND host = $3`,
-          [currentDigest, container.Names[0].slice(1), process.env.HOSTNAME]
-        );
+        // For non-latest tags, use the original digest comparison
+        const currentDigest = currentImage.RepoDigests?.[0]?.split('@')[1];
+        const { stdout: newDigest } = await execAsync(`docker pull ${imageName} --quiet`);
+        
+        if (newDigest.trim() !== currentDigest) {
+          // Update available
+          await this.pool.query(
+            `UPDATE containers 
+             SET latest = false, 
+                 new = true, 
+                 current_version = $1, 
+                 latest_version = $2,
+                 last_checked = CURRENT_TIMESTAMP
+             WHERE name = $3 AND host = $4`,
+            [currentDigest, newDigest.trim(), container.Names[0].slice(1), process.env.HOSTNAME]
+          );
+        } else {
+          // Already on latest version
+          await this.pool.query(
+            `UPDATE containers 
+             SET latest = true, 
+                 new = false, 
+                 error = false,
+                 error_message = NULL,
+                 current_version = $1,
+                 latest_version = $1,
+                 last_checked = CURRENT_TIMESTAMP
+             WHERE name = $2 AND host = $3`,
+            [currentDigest, container.Names[0].slice(1), process.env.HOSTNAME]
+          );
+        }
       }
     } catch (error) {
       // Error occurred
